@@ -113,3 +113,35 @@ This is **not** meant to be production-ready code, but intentionally structured 
 
 ---
 
+## 🔗 Relationship to Other Layers
+
+This repository is part of a multi-layer cloud governance architecture.  
+Layers are designed to reflect how enterprises structure cloud adoption across AWS, Azure, GCP, and OCI.
+
+### **Layer 0 – Architecture Philosophy & Governance Principles**  
+Defines the overarching architectural approach, governance model, guiding assumptions, and multicloud strategy.
+
+### **Layer 1 – Organizational Guardrails (This Repository)**  
+Implements preventive governance at the highest scope of the environment:
+- Organizations / Management Groups / Folders / Tenancies  
+- Baseline & strict guardrails  
+- Enterprise policy enforcement  
+- Security, compliance, and regulatory alignment  
+
+### **Layer 2 – Multicloud Landing Zone (Completed Separately)**  
+Layer 2 builds the technical foundation that workloads inherit:  
+- Core networking (hub/spoke, shared services, VPC/VNet/VPC-SC patterns)  
+- Central identity integrations  
+- Logging, monitoring, and audit baselines  
+- Security services (WAF, Firewall, NSG, Security Groups, IAM roles)  
+- Deployment scaffolding for applications
+
+Layer 1 and Layer 2 work together:
+
+- **Layer 1 defines what *must* be true** (policy, restrictions, compliance).  
+- **Layer 2 defines how cloud environments are built** (networking, identity, logging).  
+
+Together they create a consistent, secure, and scalable multicloud foundation.
+
+---
+
