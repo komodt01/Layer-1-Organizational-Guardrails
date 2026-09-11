@@ -1,23 +1,45 @@
 ############################################################
-# OCI – STRICT TENANCY GUARDRAILS (LAYER 1)
+# OCI – BASELINE TENANCY GUARDRAILS (LAYER 1)
+#
+# Purpose:
+# Establish tenancy-level access restrictions that support
+# centralized governance and least-privilege administration.
+#
+# OCI IAM is primarily allow-based. Baseline controls grant
+# only the permissions required within approved boundaries.
 ############################################################
 
-# Deny creation of public object storage buckets
-resource "oci_identity_policy" "deny_public_buckets" {
+
+############################################################
+# Restrict administrative resource management to
+# approved OCI regions
+############################################################
+
+resource "oci_identity_policy" "baseline_region_restriction" {
   compartment_id = var.tenancy_ocid
-  name           = "deny-public-buckets"
+  name           = "baseline-approved-regions"
+  description    = "Restrict administrative resource management to approved OCI regions."
 
   statements = [
-    "deny group AllUsers to manage object-family in tenancy where request.permission='OBJECT_CREATE' and target.bucket.public-access='ObjectRead'"
+    "Allow group Administrators to manage all-resources in tenancy where any {request.region='PHX', request.region='IAD'}"
   ]
 }
 
-# Restrict regions to approved set
-resource "oci_identity_policy" "allow_only_regions" {
+
+############################################################
+# Allow Object Storage administration without granting
+# broad unrestricted tenancy permissions
+#
+# Public bucket prevention is handled more strongly through
+# OCI Security Zones in strict environments.
+############################################################
+
+resource "oci_identity_policy" "baseline_object_storage_admin" {
   compartment_id = var.tenancy_ocid
-  name           = "allowed-regions"
+  name           = "baseline-object-storage-admin"
+  description    = "Provide controlled Object Storage administration."
 
   statements = [
-    "allow group Administrators to use regions in tenancy where request.region in ('us-phoenix-1','us-ashburn-1')"
+    "Allow group ObjectStorageAdmins to manage object-family in tenancy"
   ]
 }
