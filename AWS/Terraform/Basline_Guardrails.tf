@@ -1,21 +1,46 @@
 ############################################################
-# AWS – STRICT ORGANIZATIONAL GUARDRAILS (LAYER 1)
+# AWS – BASELINE ORGANIZATIONAL GUARDRAILS (LAYER 1)
+#
+# Purpose:
+# Establish enterprise-wide preventive controls that should
+# apply broadly across AWS member accounts.
+#
+# NOTE:
+# These SCPs restrict permissions. They do not grant access.
 ############################################################
 
-# Deny deployments in unapproved regions
-resource "aws_organizations_policy" "deny_unapproved_regions" {
-  name        = "deny-unapproved-regions"
-  description = "Deny access to any region not explicitly allowed."
+
+############################################################
+# Restrict workloads to approved AWS Regions
+#
+# Global AWS services are excluded because many operate from
+# global endpoints and can otherwise be unintentionally blocked.
+############################################################
+
+resource "aws_organizations_policy" "baseline_approved_regions" {
+  name        = "baseline-approved-regions"
+  description = "Restrict regional AWS operations to approved regions while allowing required global services."
   type        = "SERVICE_CONTROL_POLICY"
 
   content = jsonencode({
     Version = "2012-10-17"
+
     Statement = [
       {
-        Sid      = "DenyNonAllowedRegions"
-        Effect   = "Deny"
-        Action   = "*"
+        Sid    = "DenyOperationsOutsideApprovedRegions"
+        Effect = "Deny"
+
+        NotAction = [
+          "iam:*",
+          "organizations:*",
+          "route53:*",
+          "cloudfront:*",
+          "support:*",
+          "budgets:*"
+        ]
+
         Resource = "*"
+
         Condition = {
           StringNotEquals = {
             "aws:RequestedRegion" = [
@@ -29,56 +54,79 @@ resource "aws_organizations_policy" "deny_unapproved_regions" {
   })
 }
 
-# Block public bucket ACLs and policies
-resource "aws_organizations_policy" "block_public_s3" {
-  name = "block-public-s3"
-  type = "SERVICE_CONTROL_POLICY"
+
+############################################################
+# Protect CloudTrail from being disabled or deleted
+############################################################
+
+resource "aws_organizations_policy" "baseline_protect_cloudtrail" {
+  name        = "baseline-protect-cloudtrail"
+  description = "Prevent member accounts from disabling or deleting CloudTrail audit logging."
+  type        = "SERVICE_CONTROL_POLICY"
 
   content = jsonencode({
     Version = "2012-10-17"
+
     Statement = [
       {
-        Sid    = "BlockPublicAccess"
-        Effect = "Deny"
+        Sid      = "ProtectCloudTrail"
+        Effect   = "Deny"
         Action = [
-          "s3:PutBucketAcl",
-          "s3:PutBucketPolicy"
+          "cloudtrail:StopLogging",
+          "cloudtrail:DeleteTrail"
         ]
         Resource = "*"
-        Condition = {
-          StringEquals = {
-            "s3:x-amz-acl" = [
-              "public-read",
-              "public-read-write"
-            ]
-          }
-        }
       }
     ]
   })
 }
 
-# Restrict EC2 instance types
-resource "aws_organizations_policy" "restrict_instance_types" {
-  name = "restrict-instance-types"
-  type = "SERVICE_CONTROL_POLICY"
+
+############################################################
+# Protect AWS Config monitoring
+############################################################
+
+resource "aws_organizations_policy" "baseline_protect_config" {
+  name        = "baseline-protect-config"
+  description = "Prevent member accounts from disabling AWS Config recording."
+  type        = "SERVICE_CONTROL_POLICY"
 
   content = jsonencode({
     Version = "2012-10-17"
+
     Statement = [
       {
-        Sid      = "RestrictInstances"
+        Sid      = "ProtectAWSConfig"
         Effect   = "Deny"
-        Action   = ["ec2:RunInstances"]
+        Action = [
+          "config:StopConfigurationRecorder",
+          "config:DeleteConfigurationRecorder"
+        ]
         Resource = "*"
-        Condition = {
-          StringNotEquals = {
-            "ec2:InstanceType" = [
-              "t3.small",
-              "t3.medium"
-            ]
-          }
-        }
+      }
+    ]
+  })
+}
+
+
+############################################################
+# Prevent member accounts from leaving the AWS Organization
+############################################################
+
+resource "aws_organizations_policy" "baseline_prevent_org_exit" {
+  name        = "baseline-prevent-org-exit"
+  description = "Prevent member accounts from leaving centralized organizational governance."
+  type        = "SERVICE_CONTROL_POLICY"
+
+  content = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Sid      = "PreventLeavingOrganization"
+        Effect   = "Deny"
+        Action   = "organizations:LeaveOrganization"
+        Resource = "*"
       }
     ]
   })
