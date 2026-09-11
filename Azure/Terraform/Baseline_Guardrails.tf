@@ -1,60 +1,117 @@
 ############################################################
-# AZURE – STRICT ORGANIZATIONAL GUARDRAILS (LAYER 1)
+# AZURE – BASELINE ORGANIZATIONAL GUARDRAILS (LAYER 1)
+#
+# Purpose:
+# Establish broad preventive controls at the Azure
+# management-group level for landing-zone subscriptions.
+#
+# These controls are intended to be broadly applicable
+# enterprise defaults rather than workload-specific rules.
 ############################################################
 
-# Allowed VM SKUs
-resource "azurerm_policy_definition" "allowed_vm_skus" {
-  name         = "allowed-vm-skus"
-  policy_type  = "Custom"
-  mode         = "All"
-  display_name = "Allowed VM SKUs"
 
-  parameters = {
-    listOfAllowedSKUs = {
+############################################################
+# Allow deployments only in approved Azure regions
+############################################################
+
+resource "azurerm_policy_definition" "allowed_locations" {
+  name                = "baseline-allowed-locations"
+  policy_type         = "Custom"
+  mode                = "Indexed"
+  display_name        = "Baseline - Allowed Azure Locations"
+  management_group_id = azurerm_management_group.landing_zones.id
+
+  parameters = jsonencode({
+    listOfAllowedLocations = {
       type = "Array"
+      metadata = {
+        displayName = "Allowed locations"
+        description = "Azure regions approved for resource deployment."
+      }
     }
-  }
+  })
 
   policy_rule = jsonencode({
     if = {
-      field = "Microsoft.Compute/virtualMachines/sku.name"
-      notIn = "[parameters('listOfAllowedSKUs')]"
+      allOf = [
+        {
+          field = "location"
+          notIn = "[parameters('listOfAllowedLocations')]"
+        },
+        {
+          field     = "location"
+          notEquals = "global"
+        }
+      ]
     }
+
     then = {
       effect = "deny"
     }
   })
 }
 
-resource "azurerm_policy_assignment" "assign_allowed_vm_skus" {
-  scope                = azurerm_management_group.landing_zones.id
-  policy_definition_id = azurerm_policy_definition.allowed_vm_skus.id
 
-  parameters = {
-    listOfAllowedSKUs = {
+resource "azurerm_management_group_policy_assignment" "allowed_locations" {
+  name                 = "baseline-allowed-locations"
+  display_name         = "Baseline - Allowed Azure Locations"
+  management_group_id  = azurerm_management_group.landing_zones.id
+  policy_definition_id = azurerm_policy_definition.allowed_locations.id
+
+  parameters = jsonencode({
+    listOfAllowedLocations = {
       value = [
-        "Standard_B2s",
-        "Standard_DS2_v2"
+        "eastus",
+        "westus2"
       ]
     }
+  })
+
+  non_compliance_message {
+    content = "Resource deployment is restricted to approved Azure regions."
   }
 }
 
-# Enforce HTTPS for App Services
-resource "azurerm_policy_definition" "enforce_https" {
-  name         = "enforce-https"
-  policy_type  = "Custom"
-  display_name = "App Services must enforce HTTPS"
 
-  policy_rule = <<POLICY
-{
-  "if": {
-    "allOf": [
-      { "field": "type", "equals": "Microsoft.Web/sites" },
-      { "field": "Microsoft.Web/sites/httpsOnly", "notEquals": "true" }
-    ]
-  },
-  "then": { "effect": "deny" }
+############################################################
+# Require HTTPS for Azure App Service
+############################################################
+
+resource "azurerm_policy_definition" "require_app_service_https" {
+  name                = "baseline-require-app-service-https"
+  policy_type         = "Custom"
+  mode                = "All"
+  display_name        = "Baseline - Require HTTPS for App Service"
+  management_group_id = azurerm_management_group.landing_zones.id
+
+  policy_rule = jsonencode({
+    if = {
+      allOf = [
+        {
+          field  = "type"
+          equals = "Microsoft.Web/sites"
+        },
+        {
+          field     = "Microsoft.Web/sites/httpsOnly"
+          notEquals = true
+        }
+      ]
+    }
+
+    then = {
+      effect = "deny"
+    }
+  })
 }
-POLICY
+
+
+resource "azurerm_management_group_policy_assignment" "require_app_service_https" {
+  name                 = "baseline-appsvc-https"
+  display_name         = "Baseline - Require HTTPS for App Service"
+  management_group_id  = azurerm_management_group.landing_zones.id
+  policy_definition_id = azurerm_policy_definition.require_app_service_https.id
+
+  non_compliance_message {
+    content = "Azure App Service applications must enforce HTTPS."
+  }
 }
