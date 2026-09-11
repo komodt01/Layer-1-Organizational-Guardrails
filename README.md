@@ -104,15 +104,6 @@ This is **not** meant to be production-ready code, but intentionally structured 
 
 ---
 
-## 📄 Next Layers (Optional Future Additions)
-
-- **Layer 2 – Landing Zones / Networking Foundations**  
-- **Layer 3 – Workload Guardrails / Application Security**  
-- **Layer 4 – Logging / Monitoring / SIEM**  
-- **Layer 5 – Compliance Automation**  
-
----
-
 ## 🔗 Relationship to Other Layers
 
 This repository is part of a multi-layer cloud governance architecture.  
