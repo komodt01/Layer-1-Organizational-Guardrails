@@ -175,7 +175,7 @@ The project therefore uses a combination of **OCI IAM policies and Security Zone
 
 The OCI baseline profile demonstrates:
 
-* Region-based administrative boundaries
+* Region-conditioned administrative permissions
 * Controlled Object Storage permissions
 * Tenancy-level least-privilege governance
 
