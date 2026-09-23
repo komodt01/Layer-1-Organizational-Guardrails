@@ -359,7 +359,7 @@ Layer-1-Organizational-Guardrails/
 │
 ├── AWS/
 │   └── Terraform/
-│       ├── Basline_Guardrails.tf
+│       ├── Baseline_Guardrails.tf
 │       └── Strict_Guardrails.tf
 │
 ├── Azure/
