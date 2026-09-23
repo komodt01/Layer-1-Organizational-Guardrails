@@ -1,324 +1,415 @@
 # Multicloud Organizational Guardrails – Layer 1
 
-This repository demonstrates how enterprise security and governance requirements can be translated into **organization-level preventive guardrails across AWS, Azure, Google Cloud, and Oracle Cloud Infrastructure (OCI)**.
+## Overview
 
-Layer 1 represents the organizational governance boundary of a multicloud environment. The objective is not to make every cloud use identical controls, but to establish consistent **security outcomes** using the native governance mechanisms of each provider.
+This project demonstrates a **Layer 1 organizational guardrail architecture** across AWS, Azure, Google Cloud, and Oracle Cloud Infrastructure.
 
-The Terraform examples are architecture-focused and are not intended to be deployed unchanged into production.
+The objective is not to make every cloud use identical technical controls.
 
----
+The objective is to establish consistent **enterprise security outcomes** using the governance mechanisms native to each provider.
 
-## Project Scope
+The architecture focuses on controls that sit above individual workloads and influence what subordinate accounts, subscriptions, projects, and compartments are permitted to do.
 
-This project focuses specifically on **Layer 1 organizational guardrails**.
-
-It assumes that the organization, management groups, folders, tenancies, compartments, landing zones, networking, and other foundational structures required by the policies already exist.
-
-The project demonstrates how an enterprise could define controls governing:
-
-* Approved deployment locations
-* Audit and security-service protection
-* Identity and credential restrictions
-* Public exposure
-* Network configuration
-* Organizational governance boundaries
-* Higher-security environments requiring stricter controls
-
-The exact implementation differs by cloud because AWS, Azure, GCP, and OCI provide different organizational governance mechanisms.
+> **Standardize the security outcome, not necessarily the cloud implementation.**
 
 ---
 
-## Baseline vs. Strict Guardrails
+## Architectural Purpose
 
-Rather than applying the same restrictions to every environment, this project separates controls into two governance profiles.
+Enterprise multicloud environments rarely have one governance mechanism that works identically everywhere.
 
-### Baseline Guardrails
+AWS uses Organizations and Service Control Policies.
 
-Baseline controls represent security requirements that could reasonably apply across a broad enterprise cloud environment.
+Azure uses Management Groups and Azure Policy.
+
+Google Cloud uses Organization Policy.
+
+OCI combines IAM policy with controls such as Security Zones.
+
+Layer 1 translates enterprise security requirements into these provider-native mechanisms while preserving a common governance intent.
 
 Examples include:
 
-* Approved deployment regions or locations
-* Protection of audit and configuration monitoring
-* HTTPS requirements
-* Service-account credential restrictions
-* Organizational governance protections
-* Prevention of unsafe default configurations
+* Restricting resource deployment locations
+* Protecting audit and security capabilities
+* Reducing persistent credential use
+* Limiting public exposure
+* Preventing workloads from escaping organizational governance
+* Applying stronger restrictions to higher-risk environments
 
-### Strict Guardrails
-
-Strict controls represent additional restrictions appropriate for regulated, sensitive, or high-security workloads.
-
-Examples include:
-
-* Reduced public network exposure
-* Private-only workload patterns
-* Protection of additional security services
-* Prevention of legacy or weaker access mechanisms
-* Stronger network and identity restrictions
-* OCI Security Zone enforcement
-
-Strict controls intentionally reduce workload-team flexibility in exchange for a stronger security posture.
+The Terraform in this repository is **architecture-focused**. It demonstrates representative guardrail patterns and is not intended to be deployed unchanged into a production organization.
 
 ---
 
-## Cloud Governance Model
+## Layer 1 in the Architecture
 
-A key design principle of this project is that **the security requirement should remain consistent even when the technical enforcement mechanism changes between cloud providers**.
+This repository represents the organizational governance layer.
 
-| Cloud | Organizational Governance Mechanism               | Example Guardrails                                                                             |
-| ----- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| AWS   | AWS Organizations Service Control Policies (SCPs) | Region restrictions, CloudTrail protection, AWS Config protection, security-service protection |
-| Azure | Management Groups + Azure Policy                  | Allowed locations, HTTPS enforcement, public network restrictions                              |
-| GCP   | Organization Policy                               | Resource locations, service-account restrictions, external IP restrictions, network controls   |
-| OCI   | IAM Policies + Security Zones                     | Regional access boundaries, controlled permissions, Security Zone enforcement                  |
+```text
+Enterprise Security Requirements
+              |
+              v
+     Layer 1 Guardrails
+              |
+              v
+ Provider-Native Governance
+              |
+              v
+ Organizational Hierarchy
+              |
+              v
+     Workload Environments
+```
 
-The objective is therefore not service-for-service equivalency. The objective is **equivalent governance outcomes appropriate to each cloud platform**.
+Layer 1 determines what must be true across governed environments.
+
+It does not build the complete workload platform.
+
+Landing zones, network topology, private connectivity, DNS, workload identity, application architecture, and similar implementation capabilities belong primarily to Layer 2 and downstream architecture.
+
+This distinction matters because some Layer 1 restrictions are only operationally viable when the supporting Layer 2 architecture already exists.
+
+---
+
+## Baseline and Strict Governance Profiles
+
+The project uses two governance profiles rather than applying maximum restriction everywhere.
+
+### Baseline
+
+Baseline guardrails represent controls intended to apply broadly across enterprise environments.
+
+They establish foundational security requirements while preserving reasonable workload flexibility.
+
+### Strict
+
+Strict guardrails apply stronger restrictions for regulated, sensitive, or higher-risk environments.
+
+These controls reduce workload flexibility in exchange for a narrower permitted operating space.
+
+Strict is not automatically better.
+
+A stronger preventive control can create operational failure if its architectural dependencies are not ready.
+
+For example, disabling public access before private connectivity and DNS are available may secure the public boundary while simultaneously making a legitimate workload unusable.
+
+---
+
+# AWS Guardrails
+
+AWS Layer 1 governance is modeled with **AWS Organizations Service Control Policies (SCPs)**.
+
+SCPs constrain the maximum permissions available to principals in governed member accounts. They do not grant permissions themselves.
+
+## Baseline
+
+The baseline examples define SCPs for:
+
+* Approved AWS Regions
+* CloudTrail protection
+* AWS Config protection
+* Prevention of member accounts leaving the AWS Organization
+
+The approved-region policy accounts for selected global AWS services that may require access outside normal regional restrictions.
+
+## Strict
+
+The strict profile includes the baseline security intent and adds controls for:
+
+* S3 ACL modification
+* GuardDuty detector deletion
+* Security Hub disablement
+
+The S3 ACL restriction should not be interpreted as complete prevention of public S3 exposure.
+
+Production architecture should evaluate controls such as organization-level S3 Block Public Access and other provider-native protections as part of the broader data-security posture.
+
+## AWS Enforcement Boundary
+
+The Terraform in this repository defines the SCPs.
+
+It does **not** attach those policies to an AWS Organization root, Organizational Unit, or account.
+
+Production enforcement therefore requires deliberate policy attachment to the appropriate organizational scope.
+
+A defined SCP is not equivalent to an enforced SCP.
+
+---
+
+# Azure Guardrails
+
+Azure Layer 1 governance is modeled through **Management Groups and Azure Policy**.
+
+Unlike the AWS examples in this repository, the Azure Terraform includes both policy definitions and management-group policy assignments.
+
+## Baseline
+
+The baseline profile includes:
+
+* Approved Azure locations
+* HTTPS enforcement for Azure App Service
+
+## Strict
+
+The strict profile adds:
+
+* Disabled public network access for Azure Storage
+* Disabled public network access for Azure Key Vault
+
+These restrictions assume that workloads have viable private connectivity.
+
+Production environments would typically require supporting capabilities such as:
+
+* Private Endpoints
+* Private DNS
+* Routing
+* Controlled administrative access
+* Monitoring and operational recovery paths
+
+The policy can enforce the restriction, but Layer 2 must provide the architecture that allows the workload to operate within it.
+
+---
+
+# Google Cloud Guardrails
+
+Google Cloud Layer 1 governance is modeled with **Organization Policy**.
+
+The policies in this repository target the organization scope through the supplied organization identifier.
+
+## Baseline
+
+The baseline profile includes:
+
+* Approved resource locations
+* Disabled user-managed service-account key creation
+* Disabled automatic IAM grants for default service accounts
+* Prevention of VM IP forwarding
+
+These controls support centralized identity and network governance while reducing reliance on persistent credentials.
+
+## Strict
+
+The strict profile adds:
+
+* Prevention of external IP addresses on Compute Engine VMs
+* Prevention of automatic default VPC creation
+* Required OS Login
+
+These controls assume that alternative connectivity and administrative paths have been designed.
+
+Organization Policy should also be evaluated against existing resources because preventive policy does not necessarily remediate configurations that already exist.
+
+---
+
+# OCI Guardrails
+
+OCI requires a different governance interpretation than AWS, Azure, or Google Cloud.
+
+OCI IAM is primarily **allow-based**.
+
+A narrowly scoped IAM statement does not independently create the same type of hard permission boundary as an AWS SCP if broader permissions are granted elsewhere.
+
+Effective permissions must therefore be evaluated across the applicable OCI IAM policy set.
+
+## Baseline
+
+The baseline examples demonstrate:
+
+* A region-conditioned administrative IAM grant
+* Dedicated Object Storage administration through a separate IAM group
+
+The administrative policy conditions that specific grant on approved OCI regions.
+
+It should not be interpreted as independently preventing administrative access in other regions when another applicable policy grants broader permissions.
+
+## Strict
+
+The strict profile combines:
+
+* A region-conditioned administrative IAM grant
+* OCI Security Zone enforcement for a designated strict compartment
+
+Security Zones provide stronger preventive enforcement by rejecting resource operations that violate the selected Security Zone recipe.
+
+The example assumes that Cloud Guard is already enabled and that the required strict compartment and Maximum Security Recipe identifiers are available.
+
+---
+
+## Governance Authority and Inheritance
+
+Organizational guardrails are fundamentally about **authority**.
+
+The important architecture path is:
+
+```text
+Enterprise Requirement
+        |
+        v
+Governance Authority
+        |
+        v
+Provider-Native Control
+        |
+        v
+Assignment / Scope
+        |
+        v
+Inheritance
+        |
+        v
+Workload Enforcement
+```
+
+A Terraform resource existing in a repository is not proof that a workload is governed.
+
+The architecture must distinguish between a control that is:
+
+* Defined
+* Deployed
+* Assigned or attached
+* Inherited
+* Enforced
+* Tested
+* Monitored
+
+The provider mechanisms differ, but this distinction applies across the multicloud environment.
+
+See [`trust-boundaries.md`](trust-boundaries.md) for the governance authority and trust-boundary model.
+
+---
+
+## Exception Governance
+
+Enterprise guardrails need a controlled way to handle legitimate deviations.
+
+The preferred response to a workload conflict is not to weaken a centralized policy for every environment.
+
+A production exception process should consider:
+
+* Business justification
+* Affected workload
+* Requested deviation
+* Risk
+* Compensating controls
+* Approval authority
+* Scope
+* Monitoring requirements
+* Review or expiration date
+
+This repository describes the architectural requirement for exception governance but does not implement a formal exception-management platform.
+
+---
+
+## Validation and Evidence
+
+Governance should be validated as an enforcement chain rather than only as Terraform configuration.
+
+```text
+Requirement
+    |
+    v
+Policy Definition
+    |
+    v
+Assignment / Attachment
+    |
+    v
+Inheritance
+    |
+    v
+Enforcement Test
+    |
+    v
+Evidence
+```
+
+Production evidence may include policy assignments, SCP attachments, organizational hierarchy records, denied deployment events, compliance results, policy-change logs, Terraform execution records, and approved exceptions.
+
+This distinction supports traceability between security intent and actual cloud enforcement.
+
+---
+
+## Production Considerations
+
+A production implementation should evaluate additional requirements including:
+
+* Organizational hierarchy and inheritance
+* Separation of duties
+* Privileged governance administration
+* Policy deployment authorization
+* Break-glass access
+* Exception lifecycle management
+* Rollout and rollback strategy
+* Existing-resource remediation
+* Private-connectivity dependencies
+* Terraform state protection
+* Policy testing
+* Monitoring and evidence retention
+* Data residency requirements
+* Provider-specific limitations
+
+These considerations are intentionally broader than the representative Terraform examples contained in this repository.
 
 ---
 
 ## Repository Structure
 
 ```text
-README.md
-Security.md
-compliance.md
-
-/AWS
-    /Terraform
-        /baseline
-            guardrails.tf
-        /strict
-            guardrails.tf
-
-/Azure
-    /Terraform
-        /baseline
-            guardrails.tf
-        /strict
-            guardrails.tf
-
-/GCP
-    /Terraform
-        /baseline
-            guardrails.tf
-        /strict
-            guardrails.tf
-
-/OCI
-    /Terraform
-        /baseline
-            guardrails.tf
-        /strict
-            guardrails.tf
+Layer-1-Organizational-Guardrails/
+│
+├── AWS/
+│   └── Terraform/
+│       ├── Basline_Guardrails.tf
+│       └── Strict_Guardrails.tf
+│
+├── Azure/
+│   └── Terraform/
+│       ├── Baseline_Guardrails.tf
+│       └── Strict_Guardrails.tf
+│
+├── GCP/
+│   └── Terraform/
+│       ├── Baseline_Guardrails.tf
+│       └── Strict_Guardrails.tf
+│
+├── OCI/
+│   └── Terraform/
+│       ├── Baseline_Guardrail.tf
+│       └── Strict_Guardrails.tf
+│
+├── README.md
+├── Security.md
+├── TECHNICAL_CASE_STUDY.md
+├── compliance.md
+└── trust-boundaries.md
 ```
 
-Baseline and strict configurations are separated because they represent **alternative governance profiles** rather than Terraform files intended to be applied together.
-
 ---
 
-## AWS Guardrails
+## Supporting Documentation
 
-AWS governance is implemented primarily through **AWS Organizations Service Control Policies (SCPs)**.
+### Security Model
 
-### Baseline
+[`Security.md`](Security.md) describes the security principles, control boundaries, exceptions, validation model, and production considerations behind the guardrails.
 
-The baseline profile demonstrates controls for:
+### Governance and Trust Boundaries
 
-* Restricting operations to approved AWS Regions while accounting for required global services
-* Preventing CloudTrail from being disabled or deleted
-* Protecting AWS Config recording
-* Preventing member accounts from leaving centralized organizational governance
+[`trust-boundaries.md`](trust-boundaries.md) focuses on governance authority, organizational inheritance, workload administration, privileged governance changes, exception paths, and evidence.
 
-### Strict
+### Technical Case Study
 
-The strict profile extends the security posture with controls such as:
+[`TECHNICAL_CASE_STUDY.md`](TECHNICAL_CASE_STUDY.md) explains the architectural decisions, provider differences, failure paths, tradeoffs, and lessons learned from translating common enterprise security outcomes across four cloud providers.
 
-* Preventing S3 ACL changes
-* Protecting GuardDuty
-* Protecting Security Hub
-* Maintaining the baseline regional and audit protections
+### Compliance Alignment
 
-A production implementation would also evaluate organization-level S3 Block Public Access policies as part of the enterprise storage governance model.
-
----
-
-## Azure Guardrails
-
-Azure governance is implemented through **Management Groups and Azure Policy**.
-
-### Baseline
-
-The baseline profile demonstrates:
-
-* Restricting resource deployment to approved Azure locations
-* Requiring HTTPS for Azure App Service
-
-### Strict
-
-The strict profile adds stronger exposure controls, including:
-
-* Disabling public network access for Azure Storage
-* Disabling public network access for Azure Key Vault
-* Maintaining approved-location and HTTPS requirements
-
-Strict public-access controls assume that required private connectivity, Private Endpoints, DNS, and supporting network architecture have already been established.
-
----
-
-## GCP Guardrails
-
-Google Cloud governance is implemented using **Organization Policy**.
-
-### Baseline
-
-The baseline profile demonstrates:
-
-* Restricting resources to approved locations
-* Preventing user-managed service-account key creation
-* Preventing automatic IAM grants for default service accounts
-* Preventing VM IP forwarding
-
-### Strict
-
-The strict profile adds controls such as:
-
-* Preventing external IP assignment to Compute Engine workloads
-* Preventing automatic default VPC creation
-* Requiring centralized OS Login
-* Maintaining baseline identity and location restrictions
-
-The strict profile assumes private connectivity and controlled ingress/egress patterns are available for workloads that do not receive public IP addresses.
-
----
-
-## OCI Guardrails
-
-OCI differs from the other providers because organizational governance does not map directly to AWS SCPs, Azure Policy, or GCP Organization Policy.
-
-The architecture therefore uses **OCI IAM policies and Security Zones** to achieve comparable governance outcomes.
-
-### Baseline
-
-The baseline profile demonstrates:
-
-* Region-based administrative restrictions
-* Controlled Object Storage administrative permissions
-* Tenancy-level least-privilege governance
-
-### Strict
-
-The strict profile adds:
-
-* OCI Security Zone enforcement for high-security compartments
-* Stronger preventive controls through an assigned Security Zone recipe
-* Continued regional and IAM governance
-
-Cloud Guard and the required Security Zone recipe are assumed to exist before the strict Security Zone configuration is applied.
+[`compliance.md`](compliance.md) maps the architecture to relevant security and governance objectives without treating the repository as evidence of certification or attestation.
 
 ---
 
 ## Architecture Principle
 
-The central design principle behind this project is:
+A multicloud security architecture should not force every provider into the same technical model.
 
-> **Standardize the security outcome, not necessarily the cloud implementation.**
+It should define the required enterprise security outcome, understand the governance capabilities of each cloud, place enforcement at the appropriate organizational boundary, and preserve enough evidence to demonstrate that the intended control actually reaches the workload.
 
-For example, an enterprise may establish a requirement to minimize public workload exposure.
-
-That requirement could be enforced differently across providers:
-
-* AWS through organizational policies and service-specific controls
-* Azure through Management Group policy assignments
-* GCP through Organization Policy constraints
-* OCI through IAM boundaries and Security Zones
-
-The implementation differs, but the governance objective remains consistent.
-
----
-
-## Relationship to Layer 2
-
-Layer 1 defines **what must be true** across the cloud environment.
-
-Examples include:
-
-* Where resources may be deployed
-* Which security controls cannot be disabled
-* Whether certain resources may be publicly accessible
-* Which identity and network behaviors are permitted
-
-Layer 2 defines **how the cloud environment is constructed to operate within those boundaries**.
-
-Layer 2 includes areas such as:
-
-* Landing-zone architecture
-* Core networking
-* Shared services
-* Identity integration
-* Logging and monitoring foundations
-* Security services
-* Workload deployment scaffolding
-
-Together, Layer 1 and Layer 2 establish a governed cloud foundation:
-
-**Layer 1: policy and boundaries**
-
-**Layer 2: technical foundation and implementation**
-
----
-
-## Production Considerations
-
-These Terraform examples intentionally focus on architectural patterns rather than a complete production deployment.
-
-A production implementation would additionally require evaluation of:
-
-* Existing organizational hierarchy and inherited policies
-* Exceptions and exemption workflows
-* Break-glass administration
-* Policy deployment and rollback strategy
-* Existing-resource remediation
-* Policy testing before broad enforcement
-* Private connectivity dependencies
-* Logging and evidence collection
-* Regulatory and data-residency requirements
-* Provider-specific service limitations
-* Terraform state and deployment controls
-
-Guardrails should be introduced progressively and validated before broad organizational enforcement. A preventive control that is technically correct can still create business disruption if its dependencies and existing workloads are not understood.
-
----
-
-## What This Repository Demonstrates
-
-This project demonstrates how common enterprise security requirements can be translated into provider-specific organizational controls across AWS, Azure, GCP, and OCI.
-
-It focuses on:
-
-* Multicloud security architecture
-* Preventive governance
-* Policy-as-code
-* Terraform
-* Organizational security boundaries
-* Baseline vs. high-security control profiles
-* Cloud-native governance differences
-* Security-by-default architecture
-* Governance and compliance alignment
-
----
-
-## Related Architecture
-
-This repository represents **Layer 1 – Organizational Guardrails** within a broader multicloud governance architecture.
-
-**Layer 0 – Architecture Philosophy & Governance Principles**
-Defines the overarching governance model, assumptions, security principles, and multicloud strategy.
-
-**Layer 1 – Organizational Guardrails**
-Defines preventive controls and non-negotiable organizational security boundaries.
-
-**Layer 2 – Multicloud Landing Zone**
-Provides the networking, identity, logging, shared services, and workload foundation that operates within the Layer 1 boundaries.
-
-The layers intentionally separate **governance intent from platform implementation**, allowing enterprise requirements to remain consistent while individual cloud architectures use the capabilities most appropriate to each provider.
+**Standardize the security requirement. Use the provider-native mechanism. Verify the enforcement boundary.**
